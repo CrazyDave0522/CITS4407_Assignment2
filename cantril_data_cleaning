@@ -19,3 +19,20 @@
 # Created Date: 17 May 2024
 
 #!/bin/bash
+
+# input check
+## Check if correct number of arguments are provided
+if [[ "$#" -ne 3 ]]; then
+    echo "Usage: $0 <csv data file> <year | country code> <Male | Female>" >&2
+    exit 1
+fi
+
+## Check if the data files exist
+for file in "$1" "$2" "$3"; do
+    if [[ ! -s "$file" ]]; then
+        echo "The named input file $file does not exist or has zero length" >&2
+        exit 1
+    fi
+done
+# Test output
+echo "All input files exist and have non-zero length."
