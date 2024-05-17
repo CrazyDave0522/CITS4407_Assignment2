@@ -1,0 +1,21 @@
+# Description
+## This script is designed to clean the data based on certain rules(see below).
+
+# Input: This script expects three .tsv files,
+## which are `gdp-vs-happiness.tsv`, `homicide-rate-unodc.tsv`, `life-satisfaction-vs-life-expectancy.tsv`.
+## The input files may be in any order.
+
+# Output: A tab-separated data directed to standard output.
+## Based on the header line, make sure that the file is a tab-separated format file
+## Also based on the header line, report any lines that do not have the same number of cells. (Cells are allowed be empty.)
+## Remove the column with header `Continent`.
+## Ignore the rows that the country code field is empty.
+## Only keep the rows that years from 2011 to 2021, inclusive.
+## The output file sent to stdout has rows with the data in the following order (tab separated):
+## <Entity/Country> <Code> <Year> <GDP per capita> <Population> <Homicide Rate> <Life Expectancy> <Cantril Ladder score>
+
+# Author: Zixiao Ma(24116864)
+
+# Created Date: 17 May 2024
+
+#!/bin/bash
