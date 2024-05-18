@@ -1,5 +1,7 @@
+#!/bin/bash
+
 # Description
-## This script is designed to clean the data based on certain rules(see below).
+## This script is designed to clean the data based on certain rules (see below).
 
 # Input: This script expects three .tsv files,
 ## which are `gdp-vs-happiness.tsv`, `homicide-rate-unodc.tsv`, `life-satisfaction-vs-life-expectancy.tsv`.
@@ -7,36 +9,26 @@
 
 # Output: A tab-separated data directed to standard output.
 ## Based on the header line, make sure that the file is a tab-separated format file
-## Also based on the header line, report any lines that do not have the same number of cells. (Cells are allowed be empty.)
+## Also based on the header line, report any lines that do not have the same number of cells. (Cells are allowed to be empty.)
 ## Remove the column with header `Continent`.
-## Ignore the rows that the country code field is empty.
-## Only keep the rows that years from 2011 to 2021, inclusive.
+## Ignore the rows where the country code field is empty.
+## Only keep the rows with years from 2011 to 2021, inclusive.
 ## The output file sent to stdout has rows with the data in the following order (tab separated):
 ## <Entity/Country> <Code> <Year> <GDP per capita> <Population> <Homicide Rate> <Life Expectancy> <Cantril Ladder score>
 
-# Author: Zixiao Ma(24116864)
+# Author: Zixiao Ma (24116864)
 
 # Created Date: 17 May 2024
 
-#!/bin/bash
-
-# Make sure that the file is a tab-separated format file
-# Report any lines that do not have the same number of cells. (Cells are allowed be empty.)
-file_check() {
+# Function to check if a file is tab-separated and has a consistent number of cells per row
+check_file() {
     local file=$1
-    # The header line
     local header=$(head -n 1 "$file")
-    # The number of columns in the header
     local num_columns=$(echo "$header" | awk -F'\t' '{print NF}')
-    # Keep track of the current line number, starts from 1
     local line_num=1
-    # Reads each line of the file, counts the number of cells,
-    # and compares it to the number of columns in the header.
-    # If there's a mismatch, it prints a warning.
+
     while IFS= read -r line; do
         local num_cells=$(echo "$line" | awk -F'\t' '{print NF}')
-        # Checks if the number of cells in the current line
-        # is not equal to the number of columns in the header
         if [[ $num_cells -ne $num_columns ]]; then
             echo "Warning: Line $line_num in $file does not have $num_columns cells." >&2
         fi
@@ -44,17 +36,17 @@ file_check() {
     done <"$file"
 }
 
-# Remove the column with header `Continent`
+# Function to remove the "Continent" column from the file
 remove_continent_column() {
     local file=$1
     awk -F'\t' '
         {
-            # Print each row excluding the 7th column (Continent), 
-            # since the order of the columns will not change 
-            for (i=1; i<=NF; i++) {
+            # Print each row excluding the 7th column (Continent),
+            # since the order of the columns will not change
+            for (i = 1; i <= NF; i++) {
                 if (i != 7) {
                     printf "%s", $i
-                    if (i < NF) {
+                    if (i < NF && i != 6) {
                         printf "\t"
                     }
                 }
@@ -64,12 +56,12 @@ remove_continent_column() {
     ' OFS='\t' "$file"
 }
 
-# Remove the rows that the country code field is empty
+# Function to remove rows where the country code field is empty
 remove_empty_country_code() {
     local file=$1
     awk -F'\t' '
         NR==1 {
-            # Print header name
+            # Print header
             print $0
         }
         NR > 1 {
@@ -81,12 +73,12 @@ remove_empty_country_code() {
     ' OFS='\t' "$file"
 }
 
-# Only include years from 2011 to 2021, inclusive.
+# Function to filter rows by the year range (2011-2021)
 filter_by_year() {
     local file=$1
     awk -F'\t' '
         NR==1 {
-            # Print header name
+            # Print header
             print $0
         }
         NR > 1 {
@@ -99,12 +91,13 @@ filter_by_year() {
 }
 
 # Main Script
-## input check
-### Check if correct number of arguments are provided
+## Input check
+### Check if the correct number of arguments is provided
 if [[ "$#" -ne 3 ]]; then
-    echo "Usage: $0 file1.tsv file2.tsv file3.tsv" >&2
+    echo "Usage: $0 gdp-vs-happiness.tsv homicide-rate-unodc.tsv life-satisfaction-vs-life-expectancy.tsv" >&2
     exit 1
 fi
+
 ### Check if the data files exist
 for file in "$1" "$2" "$3"; do
     if [[ ! -s "$file" ]]; then
@@ -112,7 +105,6 @@ for file in "$1" "$2" "$3"; do
         exit 1
     fi
 done
-# Test output
 echo "All input files exist and have non-zero length."
 
 # Check and process each file
@@ -133,7 +125,6 @@ for file in "$@"; do
         life_satisfaction="$file"
         ;;
     *)
-        # test output
         echo "Unexpected file: $file" >&2
         exit 1
         ;;
@@ -141,6 +132,20 @@ for file in "$@"; do
 done
 
 # Process and store cleaned data from each file
-life_satisfaction_cleaned=$(echo "$life_satisfaction" | remove_continent_column | remove_empty_country_code | filter_by_year)
-gdp_happiness_cleaned=$(echo "$gdp_happiness" | remove_continent_column | remove_empty_country_code | filter_by_year)
-homicide_rate_cleaned=$(echo "$homicide_rate" | remove_empty_country_code | filter_by_year)
+gdp_happiness_cleaned=$(remove_continent_column "$gdp_happiness" | remove_empty_country_code | filter_by_year)
+homicide_rate_cleaned=$(remove_empty_country_code "$homicide_rate" | filter_by_year)
+life_satisfaction_cleaned=$(remove_continent_column "$life_satisfaction" | remove_empty_country_code | filter_by_year)
+
+# Merge the data based on country and year
+# Sort the data by country code and year before joining
+merged_data=$(join -t $'\t' -1 2 -2 2 <(echo "$gdp_happiness_cleaned" | sort -k2,2) <(echo "$homicide_rate_cleaned" | sort -k2,2) |
+    join -t $'\t' -1 2 -2 2 - <(echo "$life_satisfaction_cleaned" | sort -k2,2))
+
+# Rearrange columns and print final output to stdout
+echo -e "Entity/Country\tCode\tYear\tGDP per capita\tPopulation\tHomicide Rate\tLife Expectancy\tCantril Ladder score"
+echo "$merged_data" | awk -F'\t' '
+    {
+        # Print rows with specified column order
+        print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $7 "\t" $9 "\t" $6
+    }
+' OFS='\t'
