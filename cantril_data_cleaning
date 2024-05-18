@@ -14,7 +14,7 @@
 ## Ignore the rows where the country code field is empty.
 ## Only keep the rows with years from 2011 to 2021, inclusive.
 ## The output file sent to stdout has rows with the data in the following order (tab separated):
-## <Entity/Country> <Code> <Year> <GDP per capita> <Population> <Homicide Rate> <Life Expectancy> <Cantril Ladder score>
+## <Entity> <Code> <Year> <GDP per capita> <Population> <Homicide Rate> <Life Expectancy> <Cantril Ladder score>
 
 # Author: Zixiao Ma (24116864)
 
@@ -100,8 +100,6 @@ sort_data() {
     }
 }
 
-
-
 # Main Script
 ## Input check
 ### Check if the correct number of arguments is provided
@@ -144,7 +142,44 @@ for file in "$@"; do
 done
 echo "File order determined"
 
-# Process and store cleaned data into temporary files
-remove_continent_column "$gdp_happiness" | remove_empty_country_code | filter_by_year | sort_data >gdp_happiness_cleaned.tsv
-remove_empty_country_code "$homicide_rate" | filter_by_year | sort_data >homicide_rate_cleaned.tsv
-remove_continent_column "$life_satisfaction" | remove_empty_country_code | filter_by_year | sort_data >life_satisfaction_cleaned.tsv
+# Process and store cleaned data into variables
+gdp_happiness_cleaned=$(remove_continent_column "$gdp_happiness" | remove_empty_country_code | filter_by_year | sort_data)
+homicide_rate_cleaned=$(remove_continent_column "$homicide_rate" | remove_empty_country_code | filter_by_year | sort_data)
+life_satisfaction_cleaned=$(remove_continent_column "$life_satisfaction" | remove_empty_country_code | filter_by_year | sort_data)
+
+# Merging the data files
+# Step 1: Define a new variable merged_data, merged_data=gdp_happiness_cleaned
+merged_data=$(echo "$gdp_happiness_cleaned")
+
+# Step 2: Add a column in merged_data, header is "Homicide Rate", cells are empty
+header=$(echo "$merged_data" | head -n 1)
+header="$header\tHomicide Rate"
+merged_data=$(echo "$merged_data" | awk -v header="$header" 'NR==1{print header; next} {print $0 "\t"}')
+
+# Step 3: Fill "Homicide Rate" column based on homicide_rate_cleaned
+while IFS= read -r line; do
+    code=$(echo "$line" | awk -F'\t' '{print $2}')
+    year=$(echo "$line" | awk -F'\t' '{print $3}')
+    rate=$(echo "$line" | awk -F'\t' '{print $4}')
+    merged_data=$(echo "$merged_data" | awk -v code="$code" -v year="$year" -v rate="$rate" -F'\t' 'BEGIN{OFS=FS} NR==1{print $0; next} $2==code && $3==year{$NF=rate} {print $0}')
+done < <(echo "$homicide_rate_cleaned" | tail -n +2)
+
+# Step 4: Add a column in merged_data, header is "Life Expectancy", cells are empty
+header=$(echo "$merged_data" | head -n 1)
+header="$header\tLife Expectancy"
+merged_data=$(echo "$merged_data" | awk -v header="$header" 'NR==1{print header; next} {print $0 "\t"}')
+
+# Step 5: Fill "Life Expectancy" column based on life_satisfaction_cleaned
+while IFS= read -r line; do
+    code=$(echo "$line" | awk -F'\t' '{print $2}')
+    year=$(echo "$line" | awk -F'\t' '{print $3}')
+    expectancy=$(echo "$line" | awk -F'\t' '{print $4}')
+    merged_data=$(echo "$merged_data" | awk -v code="$code" -v year="$year" -v expectancy="$expectancy" -F'\t' 'BEGIN{OFS=FS} NR==1{print $0; next} $2==code && $3==year{$NF=expectancy} {print $0}')
+done < <(echo "$life_satisfaction_cleaned" | tail -n +2)
+
+# Change the name of the fifth and sixth header to "GDP per capita" and "Population"
+merged_data=$(echo "$merged_data" | awk -F'\t' 'NR==1{$5="GDP per capita"; $6="Population"; print; next} {print}' OFS='\t')
+
+
+# Output the final merged data
+echo "$merged_data" > merged_output.tsv
