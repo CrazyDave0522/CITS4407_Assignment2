@@ -120,22 +120,27 @@ for file in "$@"; do
     check_file "$file"
 done
 
-
 # Determine the order of files
 for file in "$@"; do
     case "$file" in
-        *gdp-vs-happiness.tsv)
-            gdp_happiness="$file"
-            ;;
-        *homicide-rate-unodc.tsv)
-            homicide_rate="$file"
-            ;;
-        *life-satisfaction-vs-life-expectancy.tsv)
-            life_satisfaction="$file"
-            ;;
-        *)
-            echo "Unexpected file: $file"
-            exit 1
-            ;;
+    *gdp-vs-happiness.tsv)
+        gdp_happiness="$file"
+        ;;
+    *homicide-rate-unodc.tsv)
+        homicide_rate="$file"
+        ;;
+    *life-satisfaction-vs-life-expectancy.tsv)
+        life_satisfaction="$file"
+        ;;
+    *)
+        # test output
+        echo "Unexpected file: $file" >&2
+        exit 1
+        ;;
     esac
 done
+
+# Process and store cleaned data from each file
+life_satisfaction_cleaned=$(echo "$life_satisfaction" | remove_continent_column | remove_empty_country_code | filter_by_year)
+gdp_happiness_cleaned=$(echo "$gdp_happiness" | remove_continent_column | remove_empty_country_code | filter_by_year)
+homicide_rate_cleaned=$(echo "$homicide_rate" | remove_empty_country_code | filter_by_year)
