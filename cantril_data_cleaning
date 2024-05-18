@@ -20,17 +20,48 @@
 
 #!/bin/bash
 
-# input check
-## Check if correct number of arguments are provided
+
+# Make sure that the file is a tab-separated format file
+# Report any lines that do not have the same number of cells. (Cells are allowed be empty.)
+file_check(){
+    local file=$1
+    # The header line
+    local header=$(head -n 1 "$file")
+    # The number of columns in the header
+    local num_columns=$(echo "$header" | awk -F'\t' '{print NF}')
+    # Keep track of the current line number, starts from 1
+    local line_num=1
+    # Reads each line of the file, counts the number of cells, 
+    # and compares it to the number of columns in the header. 
+    # If there's a mismatch, it prints a warning.
+    while IFS= read -r line; do
+        local num_cells=$(echo "$line" | awk -F'\t' '{print NF}')
+        if [[ $num_cells -ne $num_columns ]]; then
+            echo "Warning: Line $line_num in $file does not have $num_columns cells." >&2
+        fi
+        ((line_num++))
+    done < "$file"
+}
+
+# Remove the column with header `Continent`
+# Ignore the rows that the country code field is empty
+# Only include years from 2011 to 2021, inclusive.
+file_process(){
+
+}
+
+# Main Script
+## input check
+### Check if correct number of arguments are provided
 if [[ "$#" -ne 3 ]]; then
     echo "Usage: $0 <csv data file> <year | country code> <Male | Female>" >&2
     exit 1
 fi
 
-## Check if the data files exist
+### Check if the data files exist
 for file in "$1" "$2" "$3"; do
     if [[ ! -s "$file" ]]; then
-        echo "The named input file $file does not exist or has zero length" >&2
+        echo "The input file $file does not exist or has zero length" >&2
         exit 1
     fi
 done
