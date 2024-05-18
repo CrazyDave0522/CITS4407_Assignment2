@@ -90,6 +90,18 @@ filter_by_year() {
     ' OFS='\t' "$file"
 }
 
+# Function to sort the data based on
+# the combination of the second(code) and third(year) column
+sort_data() {
+    {
+        read -r header
+        echo "$header"
+        sort -t $'\t' -k2,2 -k3,3n
+    }
+}
+
+
+
 # Main Script
 ## Input check
 ### Check if the correct number of arguments is provided
@@ -105,12 +117,12 @@ for file in "$1" "$2" "$3"; do
         exit 1
     fi
 done
-echo "All input files exist and have non-zero length."
 
-# Check and process each file
+# Check each file
 for file in "$@"; do
     check_file "$file"
 done
+echo "All file process done"
 
 # Determine the order of files
 for file in "$@"; do
@@ -130,22 +142,9 @@ for file in "$@"; do
         ;;
     esac
 done
+echo "File order determined"
 
-# Process and store cleaned data from each file
-gdp_happiness_cleaned=$(remove_continent_column "$gdp_happiness" | remove_empty_country_code | filter_by_year)
-homicide_rate_cleaned=$(remove_empty_country_code "$homicide_rate" | filter_by_year)
-life_satisfaction_cleaned=$(remove_continent_column "$life_satisfaction" | remove_empty_country_code | filter_by_year)
-
-# Merge the data based on country and year
-# Sort the data by country code and year before joining
-merged_data=$(join -t $'\t' -1 2 -2 2 <(echo "$gdp_happiness_cleaned" | sort -k2,2) <(echo "$homicide_rate_cleaned" | sort -k2,2) |
-    join -t $'\t' -1 2 -2 2 - <(echo "$life_satisfaction_cleaned" | sort -k2,2))
-
-# Rearrange columns and print final output to stdout
-echo -e "Entity/Country\tCode\tYear\tGDP per capita\tPopulation\tHomicide Rate\tLife Expectancy\tCantril Ladder score"
-echo "$merged_data" | awk -F'\t' '
-    {
-        # Print rows with specified column order
-        print $1 "\t" $2 "\t" $3 "\t" $4 "\t" $5 "\t" $7 "\t" $9 "\t" $6
-    }
-' OFS='\t'
+# Process and store cleaned data into temporary files
+remove_continent_column "$gdp_happiness" | remove_empty_country_code | filter_by_year | sort_data >gdp_happiness_cleaned.tsv
+remove_empty_country_code "$homicide_rate" | filter_by_year | sort_data >homicide_rate_cleaned.tsv
+remove_continent_column "$life_satisfaction" | remove_empty_country_code | filter_by_year | sort_data >life_satisfaction_cleaned.tsv
