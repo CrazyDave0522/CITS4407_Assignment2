@@ -20,10 +20,9 @@
 
 #!/bin/bash
 
-
 # Make sure that the file is a tab-separated format file
 # Report any lines that do not have the same number of cells. (Cells are allowed be empty.)
-file_check(){
+file_check() {
     local file=$1
     # The header line
     local header=$(head -n 1 "$file")
@@ -31,33 +30,81 @@ file_check(){
     local num_columns=$(echo "$header" | awk -F'\t' '{print NF}')
     # Keep track of the current line number, starts from 1
     local line_num=1
-    # Reads each line of the file, counts the number of cells, 
-    # and compares it to the number of columns in the header. 
+    # Reads each line of the file, counts the number of cells,
+    # and compares it to the number of columns in the header.
     # If there's a mismatch, it prints a warning.
     while IFS= read -r line; do
         local num_cells=$(echo "$line" | awk -F'\t' '{print NF}')
+        # Checks if the number of cells in the current line
+        # is not equal to the number of columns in the header
         if [[ $num_cells -ne $num_columns ]]; then
             echo "Warning: Line $line_num in $file does not have $num_columns cells." >&2
         fi
         ((line_num++))
-    done < "$file"
+    done <"$file"
 }
 
 # Remove the column with header `Continent`
-# Ignore the rows that the country code field is empty
-# Only include years from 2011 to 2021, inclusive.
-file_process(){
+remove_continent_column() {
+    local file=$1
+    awk -F'\t' '
+        {
+            # Print each row excluding the 7th column (Continent), 
+            # since the order of the columns will not change 
+            for (i=1; i<=NF; i++) {
+                if (i != 7) {
+                    printf "%s", $i
+                    if (i < NF) {
+                        printf "\t"
+                    }
+                }
+            }
+            printf "\n"
+        }
+    ' OFS='\t' "$file"
+}
 
+# Remove the rows that the country code field is empty
+remove_empty_country_code() {
+    local file=$1
+    awk -F'\t' '
+        NR==1 {
+            # Print header name
+            print $0
+        }
+        NR > 1 {
+            # Only include rows with non-empty country code
+            if ($2 != "") {
+                print $0
+            }
+        }
+    ' OFS='\t' "$file"
+}
+
+# Only include years from 2011 to 2021, inclusive.
+filter_by_year() {
+    local file=$1
+    awk -F'\t' '
+        NR==1 {
+            # Print header name
+            print $0
+        }
+        NR > 1 {
+            # Only include rows with years 2011-2021
+            if ($3 >= 2011 && $3 <= 2021) {
+                print $0
+            }
+        }
+    ' OFS='\t' "$file"
 }
 
 # Main Script
 ## input check
 ### Check if correct number of arguments are provided
 if [[ "$#" -ne 3 ]]; then
-    echo "Usage: $0 <csv data file> <year | country code> <Male | Female>" >&2
+    echo "Usage: $0 file1.tsv file2.tsv file3.tsv" >&2
     exit 1
 fi
-
 ### Check if the data files exist
 for file in "$1" "$2" "$3"; do
     if [[ ! -s "$file" ]]; then
@@ -67,3 +114,8 @@ for file in "$1" "$2" "$3"; do
 done
 # Test output
 echo "All input files exist and have non-zero length."
+
+# Check and process each file
+for file in "$@"; do
+    check_file "$file"
+done
