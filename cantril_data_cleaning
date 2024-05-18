@@ -119,3 +119,23 @@ echo "All input files exist and have non-zero length."
 for file in "$@"; do
     check_file "$file"
 done
+
+
+# Determine the order of files
+for file in "$@"; do
+    case "$file" in
+        *gdp-vs-happiness.tsv)
+            gdp_happiness="$file"
+            ;;
+        *homicide-rate-unodc.tsv)
+            homicide_rate="$file"
+            ;;
+        *life-satisfaction-vs-life-expectancy.tsv)
+            life_satisfaction="$file"
+            ;;
+        *)
+            echo "Unexpected file: $file"
+            exit 1
+            ;;
+    esac
+done
