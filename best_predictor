@@ -1,6 +1,23 @@
+# Author: Zixiao Ma (24116864)
+# Created Date: 17 May 2024
+# GitHub Link: https://github.com/CrazyDave0522/CITS4407_Assignment2
+
+# Description
+## This script takes a single input, the cleaned datafile
+## produced by `cantril_data_cleaning` and for each country, calculate
+## the correlation between four predictors and Cantril-ladder scores.
+## Finally, calculate the mean of correlation of predictors across all
+## countries, and have the following output format:
+## Mean correlation of Homicide Rate with Cantril ladder is 0.061
+### Mean correlation of GDP with Cantril ladder is -0.110
+### Mean correlation of Population with Cantril ladder is -0.835
+### Mean correlation of Life Expectancy with Cantril ladder is -0.208
+### Most predictive mean correlation with the Cantril ladder is Population (r = -0.835)
+
 #!/bin/bash
 
-# Function to filter out rows with empty Cantril ladder scores and countries with fewer than 3 occurrences
+# Function to filter out rows with empty Cantril ladder scores
+# and countries with fewer than 3 occurrences
 filter() {
     local file=$1
     awk -F'\t' '
@@ -65,13 +82,13 @@ correlation_controller() {
     population_data=$(echo "$filtered_data" | awk -v code="$code" -F'\t' '$2 == code {print $5, $8}')
     homicide_data=$(echo "$filtered_data" | awk -v code="$code" -F'\t' '$2 == code {print $6, $8}')
     life_data=$(echo "$filtered_data" | awk -v code="$code" -F'\t' '$2 == code {print $7, $8}')
-    
+
     corr_GDP=$(echo "$gdp_data" | correlation_calculation)
     corr_Population=$(echo "$population_data" | correlation_calculation)
     corr_HomicideRate=$(echo "$homicide_data" | correlation_calculation)
     corr_LifeExpectancy=$(echo "$life_data" | correlation_calculation)
-    
-    printf "%s\t%.3f\t%.3f\t%.3f\t%.3f\n" "$code" "$corr_GDP" "$corr_Population" "$corr_HomicideRate" "$corr_LifeExpectancy"
+
+    echo -e "$code\t$corr_GDP\t$corr_Population\t$corr_HomicideRate\t$corr_LifeExpectancy"
 }
 
 # Main script logic
@@ -93,14 +110,14 @@ corr_data_file=$(mktemp)
 
 # Calculate correlations for each code and store in temporary file
 while read -r code; do
-    correlation_controller "$code" "$filtered_data" >> "$corr_data_file"
-done <<< "$unique_codes"
+    correlation_controller "$code" "$filtered_data" >>"$corr_data_file"
+done <<<"$unique_codes"
 
 # Calculate means
-mean_corr_GDP=$(awk -F'\t' '{sum += $2; count++} END {printf "%.3f\n", sum / count}' "$corr_data_file")
-mean_corr_Population=$(awk -F'\t' '{sum += $3; count++} END {printf "%.3f\n", sum / count}' "$corr_data_file")
-mean_corr_HomicideRate=$(awk -F'\t' '{sum += $4; count++} END {printf "%.3f\n", sum / count}' "$corr_data_file")
-mean_corr_LifeExpectancy=$(awk -F'\t' '{sum += $5; count++} END {printf "%.3f\n", sum / count}' "$corr_data_file")
+mean_corr_GDP=$(awk -F'\t' '{sum += $2; count++} END {print sum / count}' "$corr_data_file")
+mean_corr_Population=$(awk -F'\t' '{sum += $3; count++} END {print sum / count}' "$corr_data_file")
+mean_corr_HomicideRate=$(awk -F'\t' '{sum += $4; count++} END {print sum / count}' "$corr_data_file")
+mean_corr_LifeExpectancy=$(awk -F'\t' '{sum += $5; count++} END {print sum / count}' "$corr_data_file")
 
 # Determine the most predictive predictor
 max_corr_abs=$(awk -v gdp="$mean_corr_GDP" -v pop="$mean_corr_Population" -v hom="$mean_corr_HomicideRate" -v life="$mean_corr_LifeExpectancy" 'BEGIN {
@@ -136,11 +153,12 @@ most_predictor=$(awk -v max="$max_corr_abs" -v gdp="$mean_corr_GDP" -v pop="$mea
     }
 }')
 
-# Output the results
+# Output the results with three decimal places
 printf "Mean correlation of Homicide Rate with Cantril ladder is %.3f\n" "$mean_corr_HomicideRate"
 printf "Mean correlation of GDP with Cantril ladder is %.3f\n" "$mean_corr_GDP"
 printf "Mean correlation of Population with Cantril ladder is %.3f\n" "$mean_corr_Population"
 printf "Mean correlation of Life Expectancy with Cantril ladder is %.3f\n" "$mean_corr_LifeExpectancy"
+printf "\n"
 printf "Most predictive mean correlation with the Cantril ladder is %s (r = %.3f)\n" "$most_predictor" "$max_corr"
 
 # Clean up temporary file
