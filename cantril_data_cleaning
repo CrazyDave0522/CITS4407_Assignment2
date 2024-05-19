@@ -20,7 +20,8 @@
 
 # Created Date: 17 May 2024
 
-# Function to check if a file is tab-separated and has a consistent number of cells per row
+# Function to check if a file is tab-separated 
+# and has a consistent number of cells per row
 check_file() {
     local file=$1
     local header=$(head -n 1 "$file")
@@ -120,9 +121,8 @@ done
 for file in "$@"; do
     check_file "$file"
 done
-echo "All file process done"
 
-# Determine the order of files
+# Determine the order of files and assign them to variables
 for file in "$@"; do
     case "$file" in
     *gdp-vs-happiness.tsv)
@@ -140,7 +140,6 @@ for file in "$@"; do
         ;;
     esac
 done
-echo "File order determined"
 
 # Process and store cleaned data into variables
 gdp_happiness_cleaned=$(remove_continent_column "$gdp_happiness" | remove_empty_country_code | filter_by_year | sort_data)
@@ -177,9 +176,11 @@ while IFS= read -r line; do
     merged_data=$(echo "$merged_data" | awk -v code="$code" -v year="$year" -v expectancy="$expectancy" -F'\t' 'BEGIN{OFS=FS} NR==1{print $0; next} $2==code && $3==year{$NF=expectancy} {print $0}')
 done < <(echo "$life_satisfaction_cleaned" | tail -n +2)
 
+# Gerneral Process
 # Change the name of the fifth and sixth header to "GDP per capita" and "Population"
 merged_data=$(echo "$merged_data" | awk -F'\t' 'NR==1{$5="GDP per capita"; $6="Population"; print; next} {print}' OFS='\t')
+# Adjust the order of columns in merged_data
+merged_data=$(echo "$merged_data" | awk -F'\t' 'NR==1{print $1, $2, $3, $5, $6, $7, $8, $4; next} {print $1, $2, $3, $5, $6, $7, $8, $4}' OFS='\t')
 
-
-# Output the final merged data
-echo "$merged_data" > merged_output.tsv
+# Output the final merged data to stdout
+echo "$merged_data"
