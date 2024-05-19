@@ -8,7 +8,7 @@
 ## the correlation between four predictors and Cantril-ladder scores.
 ## Finally, calculate the mean of correlation of predictors across all
 ## countries, and have the following output format:
-## Mean correlation of Homicide Rate with Cantril ladder is 0.061
+### Mean correlation of Homicide Rate with Cantril ladder is 0.061
 ### Mean correlation of GDP with Cantril ladder is -0.110
 ### Mean correlation of Population with Cantril ladder is -0.835
 ### Mean correlation of Life Expectancy with Cantril ladder is -0.208
@@ -92,8 +92,14 @@ correlation_controller() {
 }
 
 # Main script logic
+# Argument check
 if [[ "$#" -ne 1 ]]; then
     echo "Usage: $0 <file_path>"
+    exit 1
+fi
+
+if [[ ! -s "$1" ]]; then
+    echo "The input file $1 does not exist or has zero length" >&2
     exit 1
 fi
 
