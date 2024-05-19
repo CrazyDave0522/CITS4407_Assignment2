@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Author: Zixiao Ma (24116864)
 # Created Date: 17 May 2024
 # GitHub Link: https://github.com/CrazyDave0522/CITS4407_Assignment2
@@ -14,7 +16,6 @@
 ### Mean correlation of Life Expectancy with Cantril ladder is -0.208
 ### Most predictive mean correlation with the Cantril ladder is Population (r = -0.835)
 
-#!/bin/bash
 
 # Function to filter out rows with empty Cantril ladder scores
 # and countries with fewer than 3 occurrences

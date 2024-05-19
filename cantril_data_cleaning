@@ -1,8 +1,8 @@
+#!/bin/bash
+
 # Author: Zixiao Ma (24116864)
 # Created Date: 17 May 2024
 # GitHub Link: https://github.com/CrazyDave0522/CITS4407_Assignment2
-
-#!/bin/bash
 
 # Description
 ## This script is designed to clean the data based on certain rules (see below).
@@ -19,6 +19,7 @@
 ## Only keep the rows with years from 2011 to 2021, inclusive.
 ## The output file sent to stdout has rows with the data in the following order (tab separated):
 ## <Entity> <Code> <Year> <GDP per capita> <Population> <Homicide Rate> <Life Expectancy> <Cantril Ladder score>
+
 
 # Function to check if a file is tab-separated
 # and has a consistent number of cells per row
@@ -122,7 +123,7 @@ for file in "$@"; do
     check_file "$file"
 done
 
-# Determine the order of files and assign them to respective variables
+# Determine the order of files and assign them to variables
 for file in "$@"; do
     case "$file" in
     *gdp-vs-happiness.tsv)
