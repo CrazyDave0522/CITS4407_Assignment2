@@ -1,0 +1,147 @@
+#!/bin/bash
+
+# Function to filter out rows with empty Cantril ladder scores and countries with fewer than 3 occurrences
+filter() {
+    local file=$1
+    awk -F'\t' '
+    NR == 1 { 
+        header = $0 
+        for (i = 1; i <= NF; i++) {
+            if ($i == "Code") code_col = i
+            if ($i == "Cantril ladder score") score_col = i
+        }
+        next 
+    }
+    $score_col != "" { 
+        data[$code_col]++
+        lines[NR] = $0
+    }
+    END {
+        print header
+        for (line in lines) {
+            split(lines[line], fields, "\t")
+            if (data[fields[code_col]] >= 3) {
+                print lines[line]
+            }
+        }
+    }' "$file"
+}
+
+# Function to calculate the Pearson correlation
+correlation_calculation() {
+    awk '
+    function abs(x) { return x < 0 ? -x : x }
+    {
+        x[NR] = $1
+        y[NR] = $2
+        sumx += $1
+        sumy += $2
+        sumx2 += $1 * $1
+        sumy2 += $2 * $2
+        sumxy += $1 * $2
+    }
+    END {
+        n = NR
+        if (n < 3) {
+            print "NA"
+            exit
+        }
+        numerator = sumxy - (sumx * sumy / n)
+        denominator = sqrt((sumx2 - sumx^2 / n) * (sumy2 - sumy^2 / n))
+        if (denominator == 0) {
+            print "NA"
+        } else {
+            print numerator / denominator
+        }
+    }'
+}
+
+# Function to calculate correlations for each predictor and fill corr_data
+correlation_controller() {
+    local code=$1
+    local filtered_data=$2
+
+    gdp_data=$(echo "$filtered_data" | awk -v code="$code" -F'\t' '$2 == code {print $4, $8}')
+    population_data=$(echo "$filtered_data" | awk -v code="$code" -F'\t' '$2 == code {print $5, $8}')
+    homicide_data=$(echo "$filtered_data" | awk -v code="$code" -F'\t' '$2 == code {print $6, $8}')
+    life_data=$(echo "$filtered_data" | awk -v code="$code" -F'\t' '$2 == code {print $7, $8}')
+    
+    corr_GDP=$(echo "$gdp_data" | correlation_calculation)
+    corr_Population=$(echo "$population_data" | correlation_calculation)
+    corr_HomicideRate=$(echo "$homicide_data" | correlation_calculation)
+    corr_LifeExpectancy=$(echo "$life_data" | correlation_calculation)
+    
+    printf "%s\t%.3f\t%.3f\t%.3f\t%.3f\n" "$code" "$corr_GDP" "$corr_Population" "$corr_HomicideRate" "$corr_LifeExpectancy"
+}
+
+# Main script logic
+if [[ "$#" -ne 1 ]]; then
+    echo "Usage: $0 <file_path>"
+    exit 1
+fi
+
+file_path="$1"
+
+# Filter the data
+filtered_data=$(filter "$file_path")
+
+# Get unique codes
+unique_codes=$(echo "$filtered_data" | awk -F'\t' 'NR > 1 {print $2}' | sort | uniq)
+
+# Temporary file to store correlation data
+corr_data_file=$(mktemp)
+
+# Calculate correlations for each code and store in temporary file
+while read -r code; do
+    correlation_controller "$code" "$filtered_data" >> "$corr_data_file"
+done <<< "$unique_codes"
+
+# Calculate means
+mean_corr_GDP=$(awk -F'\t' '{sum += $2; count++} END {printf "%.3f\n", sum / count}' "$corr_data_file")
+mean_corr_Population=$(awk -F'\t' '{sum += $3; count++} END {printf "%.3f\n", sum / count}' "$corr_data_file")
+mean_corr_HomicideRate=$(awk -F'\t' '{sum += $4; count++} END {printf "%.3f\n", sum / count}' "$corr_data_file")
+mean_corr_LifeExpectancy=$(awk -F'\t' '{sum += $5; count++} END {printf "%.3f\n", sum / count}' "$corr_data_file")
+
+# Determine the most predictive predictor
+max_corr_abs=$(awk -v gdp="$mean_corr_GDP" -v pop="$mean_corr_Population" -v hom="$mean_corr_HomicideRate" -v life="$mean_corr_LifeExpectancy" 'BEGIN {
+    gdp = (gdp < 0) ? -gdp : gdp
+    pop = (pop < 0) ? -pop : pop
+    hom = (hom < 0) ? -hom : hom
+    life = (life < 0) ? -life : life
+    max = gdp > pop ? (gdp > hom ? (gdp > life ? gdp : life) : (hom > life ? hom : life)) : (pop > hom ? (pop > life ? pop : life) : (hom > life ? hom : life))
+    print max
+}')
+
+max_corr=$(awk -v max="$max_corr_abs" -v gdp="$mean_corr_GDP" -v pop="$mean_corr_Population" -v hom="$mean_corr_HomicideRate" -v life="$mean_corr_LifeExpectancy" 'BEGIN {
+    if (max == ((gdp < 0) ? -gdp : gdp)) {
+        print gdp
+    } else if (max == ((pop < 0) ? -pop : pop)) {
+        print pop
+    } else if (max == ((hom < 0) ? -hom : hom)) {
+        print hom
+    } else {
+        print life
+    }
+}')
+
+most_predictor=$(awk -v max="$max_corr_abs" -v gdp="$mean_corr_GDP" -v pop="$mean_corr_Population" -v hom="$mean_corr_HomicideRate" -v life="$mean_corr_LifeExpectancy" 'BEGIN {
+    if (max == ((gdp < 0) ? -gdp : gdp)) {
+        print "GDP"
+    } else if (max == ((pop < 0) ? -pop : pop)) {
+        print "Population"
+    } else if (max == ((hom < 0) ? -hom : hom)) {
+        print "Homicide Rate"
+    } else {
+        print "Life Expectancy"
+    }
+}')
+
+# Output the results
+printf "Mean correlation of Homicide Rate with Cantril ladder is %.3f\n" "$mean_corr_HomicideRate"
+printf "Mean correlation of GDP with Cantril ladder is %.3f\n" "$mean_corr_GDP"
+printf "Mean correlation of Population with Cantril ladder is %.3f\n" "$mean_corr_Population"
+printf "Mean correlation of Life Expectancy with Cantril ladder is %.3f\n" "$mean_corr_LifeExpectancy"
+printf "Most predictive mean correlation with the Cantril ladder is %s (r = %.3f)\n" "$most_predictor" "$max_corr"
+
+# Clean up temporary file
+rm "$corr_data_file"
